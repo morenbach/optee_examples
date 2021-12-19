@@ -108,7 +108,7 @@ static TEE_Result inc_value(uint32_t param_types,
 		return TEE_ERROR_BAD_PARAMETERS;
 
 	IMSG("Got value: %u from NW", params[0].value.a);
-	params[0].value.a++;
+	params[0].value.a+=10;
 	IMSG("Increase value to: %u", params[0].value.a);
 
 	return TEE_SUCCESS;

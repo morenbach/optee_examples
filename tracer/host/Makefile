@@ -6,18 +6,22 @@ OBJCOPY ?= $(CROSS_COMPILE)objcopy
 OBJDUMP ?= $(CROSS_COMPILE)objdump
 READELF ?= $(CROSS_COMPILE)readelf
 
-OBJS = main.o
-
-CFLAGS += -Wall -I$(TEEC_EXPORT)/include -I./include
+CFLAGS += -Wall -I$(TEEC_EXPORT)/include
 #Add/link other required libraries here
-LDADD += -lteec -L$(TEEC_EXPORT)/lib
+LDADD += -lteec -L$(TEEC_EXPORT)/lib 
+#-lpthread -lunwind-ptrace -lunwind-generic -lboost_system -lcrypto -lssl -lcpprest
+
+SOURCES = main.c \	  
+	  tracer_interface.c
+
+OBJS = $(SOURCES:.c=.o)
 
 BINARY = optee_tracer
 
 .PHONY: all
 all: $(BINARY)
 
-$(BINARY): $(OBJS)
+$(BINARY): $(OBJS) tracer_interface.h
 	$(CC) $(LDFLAGS) -o $@ $< $(LDADD)
 
 .PHONY: clean
@@ -26,3 +30,5 @@ clean:
 
 %.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
+
+

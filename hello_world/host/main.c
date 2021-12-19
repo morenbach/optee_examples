@@ -35,13 +35,18 @@
 /* For the UUID (found in the TA's h-file(s)) */
 #include <hello_world_ta.h>
 
-int main(void)
+#define PTA_TRACER_UUID { 0xd5a2471a, 0x3ae9, 0x11ec, \
+		{ 0x8d, 0x3d, 0x02, 0x42, 0xac, 0x13, 0x00, 0x03 } }
+ 
+#define TRACER_CMD_CFA	0x0
+
+int main(int argc, char* argv[])
 {
 	TEEC_Result res;
 	TEEC_Context ctx;
 	TEEC_Session sess;
 	TEEC_Operation op;
-	TEEC_UUID uuid = TA_HELLO_WORLD_UUID;
+	TEEC_UUID uuid = PTA_TRACER_UUID; //TA_HELLO_WORLD_UUID;
 	uint32_t err_origin;
 
 	/* Initialize a context connecting us to the TEE */
@@ -74,21 +79,22 @@ int main(void)
 	 * Prepare the argument. Pass a value in the first parameter,
 	 * the remaining three parameters are unused.
 	 */
-	op.paramTypes = TEEC_PARAM_TYPES(TEEC_VALUE_INOUT, TEEC_NONE,
+	op.paramTypes = TEEC_PARAM_TYPES(TEEC_VALUE_INOUT, TEEC_VALUE_INOUT,
 					 TEEC_NONE, TEEC_NONE);
-	op.params[0].value.a = 42;
+	op.params[0].value.a = (uint32_t)atoll(argv[1]);
+	op.params[0].value.b = (uint32_t)atoll(argv[2]);
 
 	/*
 	 * TA_HELLO_WORLD_CMD_INC_VALUE is the actual function in the TA to be
 	 * called.
 	 */
-	printf("Invoking TA to increment %d\n", op.params[0].value.a);
-	res = TEEC_InvokeCommand(&sess, TA_HELLO_WORLD_CMD_INC_VALUE, &op,
+	printf("Invoking TA to increment 0x%x 0x%x\n", op.params[0].value.a, op.params[0].value.b);
+	res = TEEC_InvokeCommand(&sess, TRACER_CMD_CFA, &op,
 				 &err_origin);
 	if (res != TEEC_SUCCESS)
 		errx(1, "TEEC_InvokeCommand failed with code 0x%x origin 0x%x",
 			res, err_origin);
-	printf("TA incremented value to %d\n", op.params[0].value.a);
+	printf("TA incremented value to 0x%lx\n", op.params[0].value.a);
 
 	/*
 	 * We're done with the TA, close the session and
