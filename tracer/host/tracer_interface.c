@@ -9,26 +9,25 @@
 #define PTA_TRACER_UUID { 0xd5a2471a, 0x3ae9, 0x11ec, \
                 { 0x8d, 0x3d, 0x02, 0x42, 0xac, 0x13, 0x00, 0x03 } }
 
-#define TRACER_CMD_CFA  0x0
+#define TRACER_CMD_CREATE  0x0
+#define TRACER_CMD_CIV  0x1
+#define TRACER_CMD_CFA  0x2
+#define TRACER_CMD_PSLIST  0x3
 
-#define CREATE_TRACER 0
-#define TRACER_CIV    1
-#define TRACER_CFA    2
+// typedef struct {
+// 	int req_pid;
+// 	uint64_t* stack_frames;
+// 	int num_stack_frames;
+// 	char* buffer;
+// 	unsigned int buflen;
+// } tracer_cfa_args;
 
-typedef struct {
-	int req_pid;
-	uint64_t* stack_frames;
-	int num_stack_frames;
-	char* buffer;
-	unsigned int buflen;
-} tracer_cfa_args;
+// typedef struct {
+// 	char* buffer;
+// 	unsigned int buflen;
+// } tracer_civ_args;
 
-typedef struct {
-	char* buffer;
-	unsigned int buflen;
-} tracer_civ_args;
-
-int invoke_tracer_func(int reqID, void* priv_data, size_t priv_data_len) {
+int invoke_tracer_func(uint32_t reqID, void* buffer, size_t buflen, void* otherbuf, size_t otherbuflen, int reqPid) {
 	TEEC_Result res;
 	TEEC_Context ctx;
 	TEEC_Session sess;
@@ -54,18 +53,20 @@ int invoke_tracer_func(int reqID, void* priv_data, size_t priv_data_len) {
 	 * Prepare the argument. Pass a value in the first parameter,
 	 * the remaining three parameters are unused.
 	 */
-	op.paramTypes = TEEC_PARAM_TYPES(TEEC_VALUE_INPUT, TEEC_MEMREF_TEMP_INOUT, TEEC_NONE, TEEC_NONE);
-	op.params[0].value.a = reqID; 
-	op.params[1].tmpref.buffer = priv_data; 
-	op.params[1].tmpref.size = priv_data_len;
+	op.paramTypes = TEEC_PARAM_TYPES(TEEC_MEMREF_TEMP_OUTPUT, TEEC_MEMREF_TEMP_INPUT, TEEC_VALUE_INPUT, TEEC_NONE);
+	op.params[0].tmpref.buffer = buffer; 
+	op.params[0].tmpref.size = buflen;
 
-	//printf("Invoking TA to increment 0x%x 0x%x\n", op.params[0].value.a, op.params[0].value.b);
-	res = TEEC_InvokeCommand(&sess, TRACER_CMD_CFA, &op,
+	op.params[1].tmpref.buffer = otherbuf; 
+	op.params[1].tmpref.size = otherbuflen;
+	
+	op.params[2].value.a = reqPid;
+
+	res = TEEC_InvokeCommand(&sess, reqID, &op,
 				 &err_origin);
 	if (res != TEEC_SUCCESS)
 		errx(1, "TEEC_InvokeCommand failed with code 0x%x origin 0x%x",
 			res, err_origin);
-	//printf("TA incremented value to 0x%lx\n", op.params[0].value.a);
 	
 	/*
 	 * We're done with the TA, close the session and
@@ -84,15 +85,21 @@ int invoke_tracer_func(int reqID, void* priv_data, size_t priv_data_len) {
 
 
 void trace_cfa(int req_pid, uint64_t* stack_frames, int num_stack_frames, char* buffer, unsigned int buflen) {
-	tracer_cfa_args cfa_args = { .req_pid = req_pid, .stack_frames = stack_frames, .num_stack_frames = num_stack_frames, .buffer = buffer, .buflen = buflen };
-	invoke_tracer_func(TRACER_CFA, &cfa_args, sizeof(tracer_cfa_args));
+	// tracer_cfa_args cfa_args = { .req_pid = req_pid, .stack_frames = stack_frames, .num_stack_frames = num_stack_frames, .buffer = buffer, .buflen = buflen };
+	// invoke_tracer_func(TRACER_CMD_CFA, &cfa_args, sizeof(tracer_cfa_args));
+	invoke_tracer_func(TRACER_CMD_CFA, buffer, buflen, stack_frames, num_stack_frames, req_pid);
 }
 
 void trace_civ(char* buffer, unsigned int buflen) {
-	tracer_civ_args civ_args = { .buffer = buffer, .buflen = buflen };
-	invoke_tracer_func(TRACER_CFA, &civ_args, sizeof(tracer_civ_args));
+	// tracer_civ_args civ_args = { .buffer = buffer, .buflen = buflen };
+	printf("SEND CIV REQ: 0x%p, %lu\n", buffer, buflen);
+	invoke_tracer_func(TRACER_CMD_CIV, buffer, buflen, NULL, 0, 0);
 }
 
 void create_tracer() {
-	invoke_tracer_func(CREATE_TRACER, NULL, 0);
+	invoke_tracer_func(TRACER_CMD_CREATE, NULL, 0, NULL, 0, 0);
+}
+
+void trace_pslist() {
+	invoke_tracer_func(TRACER_CMD_PSLIST, NULL, 0, NULL, 0, 0);
 }

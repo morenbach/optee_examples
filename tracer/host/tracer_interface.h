@@ -12,6 +12,7 @@ extern "C" {
 void create_tracer();
 void trace_cfa(int req_pid, uint64_t* stack_frames, int num_stack_frames, char* buffer, unsigned int buflen);
 void trace_civ(char* buffer, unsigned int buflen);
+void trace_pslist();
 
 #ifdef __cplusplus
 }

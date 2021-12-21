@@ -33,20 +33,19 @@
 
 int main(int argc, const char * argv[]) {
     create_tracer();
-    start_server();
-    // do_backtrace(114341);
-    /*
-    unsigned int buflen = 10*1024*1024;
-    char* b = (char*)malloc(buflen);
-    if (!b) {
-      return -1;
-    }
+    // trace_pslist();
+    // start_server();
+    do_backtrace(atoi(argv[1]));
+    // unsigned int buflen = 1*1024*1024;
+    // char* b = (char*)malloc(buflen);
+    // if (!b) {
+    //   return -1;
+    // }
 
-    trace_civ(b, buflen);
+    // trace_civ(b, buflen);    
 
-    printf(b);
-    printf("\n");
-    free(b);
-    */
+    // printf(b);
+    // printf("\n");
+    // free(b);
     return 0;
 }
