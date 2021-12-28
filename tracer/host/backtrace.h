@@ -5,7 +5,7 @@
 extern "C" {
 #endif
 
-void do_backtrace (int pid);
+void do_backtrace (int pid, char* buf, unsigned int buflen);
 
 #ifdef __cplusplus
 }

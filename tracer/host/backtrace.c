@@ -9,8 +9,6 @@
 #include <libunwind-ptrace.h>
 #include "tracer_interface.h"
 
-#define MAX_CFA_RESPONSE_SIZE (1024*1024) // 1MB
-
 enum WaitResult
 {
       STOPPED     = 0
@@ -38,7 +36,7 @@ enum WaitResult ptrace_wait_syscall(pid_t pid) {
     }
 }
 
-void do_backtrace (int pid)
+void do_backtrace (int pid, char* buf, unsigned int buflen)
 {
     // int verbose = 1;
     // int print_names = 1;
@@ -95,16 +93,8 @@ void do_backtrace (int pid)
         // }
     } while (unw_step(&c) > 0);
     
-    char* buffer = (char*)malloc(MAX_CFA_RESPONSE_SIZE);
-    if (!buffer) {
-        return; // failed to allocate memory
-    }
-
     int num_stack_frames = stack_frame_idx;
-    trace_cfa(pid, stack_frames, num_stack_frames, buffer, MAX_CFA_RESPONSE_SIZE);
-    puts(buffer);
-    printf("\n");
-    free(buffer);
+    trace_cfa(pid, stack_frames, num_stack_frames, buf, buflen);    
 
     _UPT_destroy (ui);
     ptrace(PTRACE_DETACH, pid, NULL, NULL);

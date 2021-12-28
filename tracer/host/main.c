@@ -51,18 +51,41 @@ int main(int argc, const char * argv[]) {
 	    return 0;
     }
 
-    // start_server();
-    //do_backtrace(atoi(argv[1]));
-     unsigned int buflen = 1*1024*1024;
-     char* b = (char*)malloc(buflen);
-     if (!b) {
-       return -1;
-     }
+    if (argc > 1 && strcmp(argv[1], "test_attestation") == 0) {
+      unsigned int buflen = 1*1024*1024;
+      char* b = (char*)malloc(buflen);
+      if (!b) {
+        return -1;
+      }
 
-     trace_civ(b, buflen);    
+      if (argc < 2) {
+        printf("Invalid attestation option to test\n");
+        return -1;
+      }
 
-     printf(b);
-     printf("\n");
-     free(b);
+      if (strcmp(argv[2], "civ") == 0) {
+        trace_civ(b, buflen);    
+        return 0;
+      }
+
+      if (strcmp(argv[2], "cfa") != 0) {
+        printf("Invalid attestation option recieved\n");
+        return -1;
+      }
+
+      if (argc < 3) {
+        printf("CFA attestation requires PID to test with\n");
+        return -1;
+      }
+
+      do_backtrace(atoi(argv[3]), b, buflen);
+
+      printf(b);
+      printf("\n");
+      free(b);
+	    return 0;
+    }
+
+    start_server();
     return 0;
 }

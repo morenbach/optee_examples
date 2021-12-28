@@ -27,8 +27,6 @@ using namespace std;
 #define TRACE(msg)            cout << msg
 #define TRACE_ACTION(a, k, v) cout << a << " (" << k << ", " << v << ")\n"
 
-// map<utility::string_t, utility::string_t> dictionary;
-
 int getProcIdByName(string procName)
 {
     int pid = -1;
@@ -73,13 +71,12 @@ int getProcIdByName(string procName)
     return pid;
 }
 
-void display_json(
-   json::value const & jvalue,
-   utility::string_t const & prefix)
-{
-   cout << prefix << jvalue.serialize() << endl;
-}
-
+// void display_json(
+//    json::value const & jvalue,
+//    utility::string_t const & prefix)
+// {
+//    cout << prefix << jvalue.serialize() << endl;
+// }
 
 void handle_request(
    http_request request,
@@ -93,7 +90,6 @@ void handle_request(
          try
          {
             auto const & jvalue = task.get();
-            // display_json(jvalue, "R: ");
 
             if (!jvalue.is_null())
             {
@@ -108,79 +104,11 @@ void handle_request(
       .wait();
 
    
-   // display_json(answer, "S: ");
-
    request.reply(status_codes::OK, answer);
 }
 
-
-// void handle_put(http_request request)
-// {
-//    TRACE("\nhandle PUT\n");
-
-//    handle_request(
-//       request,
-//       [](json::value const & jvalue, json::value & answer)
-//    {
-//       for (auto const & e : jvalue.as_object())
-//       {
-//          if (e.second.is_string())
-//          {
-//             auto key = e.first;
-//             auto value = e.second.as_string();
-
-//             if (dictionary.find(key) == dictionary.end())
-//             {
-//                TRACE_ACTION("added", key, value);
-//                answer[key] = json::value::string("<put>");
-//             }
-//             else
-//             {
-//                TRACE_ACTION("updated", key, value);
-//                answer[key] = json::value::string("<updated>");
-//             }
-
-//             dictionary[key] = value;
-//          }
-//       }
-//    });
-// }
-
-// void handle_del(http_request request)
-// {
-//    TRACE("\nhandle DEL\n");
-
-//    handle_request(
-//       request,
-//       [](json::value const & jvalue, json::value & answer)
-//    {
-//       set<utility::string_t> keys;
-//       for (auto const & e : jvalue.as_array())
-//       {
-//          if (e.is_string())
-//          {
-//             auto key = e.as_string();
-
-//             auto pos = dictionary.find(key);
-//             if (pos == dictionary.end())
-//             {
-//                answer[key] = json::value::string("<failed>");
-//             }
-//             else
-//             {
-//                TRACE_ACTION("deleted", pos->first, pos->second);
-//                answer[key] = json::value::string("<deleted>");
-//                keys.insert(key);
-//             }
-//          }
-//       }
-
-//       for (auto const & key : keys)
-//          dictionary.erase(key);
-//    });
-// }
-
-
+char* g_response_buf;
+#define RESPONSE_SIZE (1 << 20) // 1MB
 
 void handle_post(http_request request)
 {
@@ -219,12 +147,6 @@ void handle_post(http_request request)
 
       cout << "GOT REQUEST: " << attestation_type << ", " << attestation_value << ", " << nonce << endl;
 
-      size_t bufsiz = 10*1024*1024; // 10MB
-      char* buf = (char*)malloc(bufsiz);
-      if (!buf) { // failed to allocate enough memory for trace result
-         return;
-      }
-
       if (attestation_type == "cfa") {
          // prep buffer in normal world that will store the call stack
          //
@@ -234,11 +156,11 @@ void handle_post(http_request request)
             return;
          }
 
-         do_backtrace(pid);
+         do_backtrace(pid, g_response_buf, RESPONSE_SIZE);
 
          // trace_cfa(buf, bufsiz);
       } else if (attestation_type == "civ") {
-         trace_civ(buf, bufsiz);
+         trace_civ(g_response_buf, RESPONSE_SIZE);
       } else {
          // unsupported attestation type - ignore request
          return;
@@ -250,34 +172,19 @@ void handle_post(http_request request)
    });
 }
 
-// void handle_get(http_request request)
-// {
-//       handle_request(
-//       request,
-//       [](json::value const & jvalue, json::value & answer)
-//    {
-//       for (auto const & e : jvalue.as_array())
-//       {
-//          if (e.is_string())
-//          {
-//             auto key = e.as_string();
-//             cout << "GOT request: " << key << endl;
-
-//             answer[key] = json::value::string("<nil>");
-//          }
-//       }
-//    });
-// }
-
-
 extern "C" int start_server()
 {
    http_listener listener("http://localhost:6502/tracer");
 
-   // listener.support(methods::GET,  handle_get);
    listener.support(methods::POST, handle_post);
-   // listener.support(methods::PUT,  handle_put);
-   // listener.support(methods::DEL,  handle_del);
+
+   g_response_buf = (char*)malloc(RESPONSE_SIZE);
+   if (!g_response_buf) { 
+      // Failed to allocate enough memory for trace result
+      //
+      TRACE("Failed allocating response buffer\n");
+      return -1;
+   }
 
    try
    {
