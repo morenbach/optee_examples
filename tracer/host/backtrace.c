@@ -102,7 +102,7 @@ void do_backtrace (int pid)
 
     int num_stack_frames = stack_frame_idx;
     trace_cfa(pid, stack_frames, num_stack_frames, buffer, MAX_CFA_RESPONSE_SIZE);
-    printf(buffer);
+    puts(buffer);
     printf("\n");
     free(buffer);
 

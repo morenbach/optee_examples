@@ -14,19 +14,6 @@
 #define TRACER_CMD_CFA  0x2
 #define TRACER_CMD_PSLIST  0x3
 
-// typedef struct {
-// 	int req_pid;
-// 	uint64_t* stack_frames;
-// 	int num_stack_frames;
-// 	char* buffer;
-// 	unsigned int buflen;
-// } tracer_cfa_args;
-
-// typedef struct {
-// 	char* buffer;
-// 	unsigned int buflen;
-// } tracer_civ_args;
-
 int invoke_tracer_func(uint32_t reqID, void* buffer, size_t buflen, void* otherbuf, size_t otherbuflen, int reqPid) {
 	TEEC_Result res;
 	TEEC_Context ctx;
@@ -91,8 +78,7 @@ void trace_cfa(int req_pid, uint64_t* stack_frames, int num_stack_frames, char* 
 }
 
 void trace_civ(char* buffer, unsigned int buflen) {
-	// tracer_civ_args civ_args = { .buffer = buffer, .buflen = buflen };
-	printf("SEND CIV REQ: 0x%p, %lu\n", buffer, buflen);
+	// tracer_civ_args civ_args = { .buffer = buffer, .buflen = buflen };	
 	invoke_tracer_func(TRACER_CMD_CIV, buffer, buflen, NULL, 0, 0);
 }
 

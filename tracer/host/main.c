@@ -29,23 +29,40 @@
 #include <string.h>
 #include "tracer_interface.h"
 #include "server.h"
+#include "backtrace.h"
 #include <stdlib.h>
+#include <unistd.h>
+#include <sys/types.h>
 
 int main(int argc, const char * argv[]) {
+    uid_t uid=getuid();
+    uid_t euid=geteuid();
+    if (uid>0 && uid==euid) {
+	    printf("Tracer must be run as root!\n");
+	    exit(-1);
+    }    
+
     create_tracer();
-    // trace_pslist();
+
+    // A simple test to debug tracer functionality
+    // 
+    if (argc > 1 && strcmp(argv[1], "test") == 0) {
+    	trace_pslist();
+	    return 0;
+    }
+
     // start_server();
-    do_backtrace(atoi(argv[1]));
-    // unsigned int buflen = 1*1024*1024;
-    // char* b = (char*)malloc(buflen);
-    // if (!b) {
-    //   return -1;
-    // }
+    //do_backtrace(atoi(argv[1]));
+     unsigned int buflen = 1*1024*1024;
+     char* b = (char*)malloc(buflen);
+     if (!b) {
+       return -1;
+     }
 
-    // trace_civ(b, buflen);    
+     trace_civ(b, buflen);    
 
-    // printf(b);
-    // printf("\n");
-    // free(b);
+     printf(b);
+     printf("\n");
+     free(b);
     return 0;
 }
