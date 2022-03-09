@@ -18,8 +18,8 @@ enum WaitResult
 enum WaitResult ptrace_wait_syscall(pid_t pid) {
     int  status;
 
-    for(;;) {
-        ptrace(PTRACE_SYSCALL, pid, NULL, NULL);
+    //for(;;) {
+        ptrace(PTRACE_SINGLESTEP, pid, NULL, NULL);
         waitpid(pid, &status, 0);	
 
         // This predicate holds when the monitored process
@@ -33,7 +33,7 @@ enum WaitResult ptrace_wait_syscall(pid_t pid) {
         if (WIFSTOPPED(status) && (WSTOPSIG(status) == (SIGTRAP | 0x80))) { 
             return STOPPED; 
         }
-    }
+    //}
 }
 
 void do_backtrace (int pid, char* buf, unsigned int buflen)
@@ -74,11 +74,11 @@ void do_backtrace (int pid, char* buf, unsigned int buflen)
         printf("unw_init_remote() failed: ret=%d\n", ret);
         return;
     }
-
+    
     do {
-        // unw_word_t offset;
+        unw_word_t offset;
         unw_word_t pc;
-        // char sym[4096];
+        char sym[4096];
         if (unw_get_reg(&c, UNW_REG_IP, &pc)) {
             printf("ERROR: cannot read program counter\n");
             break;
@@ -86,8 +86,9 @@ void do_backtrace (int pid, char* buf, unsigned int buflen)
 
         stack_frames[stack_frame_idx++] = pc;
 
-        // if (unw_get_proc_name(&c, sym, sizeof(sym), &offset) == 0) {
-        //     printf("(%s+0x%lx)\n", sym, offset);
+        if (unw_get_proc_name(&c, sym, sizeof(sym), &offset) == 0) {
+             printf("(%s+0x%lx)\n", sym, offset);
+	}
         // } else {
         //     printf("-- no symbol name found\n");
         // }

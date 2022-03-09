@@ -29,10 +29,75 @@
 #include <string.h>
 #include "tracer_interface.h"
 #include "server.h"
+#include "cfa_server.h"
 #include "backtrace.h"
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/types.h>
+#include <fcntl.h>
+#include <errno.h>
+#include <assert.h>
+#include <pthread.h>
+
+// #define VIRT_BUILD
+
+#define FILE_REQ_PATH "/home/ubuntu/dev/shmem"
+
+pthread_mutex_t cfa_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+volatile char virt_host_mem_started = 0;
+
+void* virt_host_mem(void* arg) {  
+  char* req_buffer = (char*)arg;
+
+  int req_fd;
+  do {
+      req_fd = open(FILE_REQ_PATH, O_RDWR);
+  } while (req_fd == -1 && errno == EINTR);
+
+  if (req_fd == -1) {
+    printf("Cannot get access to the request file to the host\n");
+    exit(-1);
+  }
+
+  virt_host_mem_started = 1;
+
+  while (1) {
+      while (*req_buffer == 0) {  
+        asm volatile("yield\n": : :"memory");
+      }
+
+      // forward request to the host server
+      uintptr_t pa;
+      size_t read_len;
+      memcpy(&pa, &req_buffer[1], sizeof(uintptr_t));
+      memcpy(&read_len, &req_buffer[1+sizeof(uintptr_t)], sizeof(size_t));
+      char* response_buf = &req_buffer[1];
+      req_buffer[1+sizeof(uintptr_t)+sizeof(size_t)]=0;
+
+      int nwrite = pwrite(req_fd, req_buffer, 2+sizeof(uintptr_t)+sizeof(size_t),0);
+      assert(nwrite == 2+sizeof(uintptr_t)+sizeof(size_t));
+
+      char resp_available = 0;        
+      do {
+          pread(req_fd, &resp_available, 1, 1+sizeof(uintptr_t)+sizeof(size_t));
+      } while(resp_available == 0);
+
+      int left = read_len;
+      do {
+        int nread = pread(req_fd, response_buf, read_len, 2+sizeof(uintptr_t)+sizeof(size_t));      
+        if (nread > 0) {
+          left -= nread;
+        }
+      } while (left > 0);
+      assert(left == 0);
+
+      // mark response as ready 
+      asm volatile("": : :"memory"); // Compile read-write barrier 
+      *req_buffer = 0;
+  }
+}
+
 
 int main(int argc, const char * argv[]) {
     uid_t uid=getuid();
@@ -42,7 +107,24 @@ int main(int argc, const char * argv[]) {
 	    exit(-1);
     }    
 
-    create_tracer();
+#ifdef VIRT_BUILD
+    char* host_buffer = malloc(8192);
+    assert(host_buffer);
+    memset(host_buffer, 0, 8192);
+    pthread_t host_mem_thread;
+    if(pthread_create(&host_mem_thread, NULL, virt_host_mem, host_buffer)) {
+      printf("ERROR creating the host memory serving thread...exiting\n");
+      exit(-1);
+    }
+
+    while (!virt_host_mem_started) {
+      asm volatile("yield\n": : :"memory");
+    }
+
+    create_tracer(host_buffer, 8192);
+#else
+    create_tracer(NULL, 0);
+#endif
 
     // A simple test to debug tracer functionality
     // 
@@ -65,6 +147,9 @@ int main(int argc, const char * argv[]) {
 
       if (strcmp(argv[2], "civ") == 0) {
         trace_civ(b, buflen);    
+        puts(b);
+	printf("\n");
+	free(b);
         return 0;
       }
 
@@ -80,12 +165,15 @@ int main(int argc, const char * argv[]) {
 
       do_backtrace(atoi(argv[3]), b, buflen);
 
-      printf(b);
+      puts(b);
       printf("\n");
       free(b);
 	    return 0;
     }
 
-    start_server();
+    pthread_t thread_cfa_server;
+    pthread_create(&thread_cfa_server, NULL, *start_cfa_server, NULL);
+
+    start_rest_server();
     return 0;
 }

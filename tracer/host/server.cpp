@@ -24,6 +24,9 @@ using namespace web::http::experimental::listener;
 
 using namespace std;
 
+extern pthread_mutex_t cfa_mutex; // = PTHREAD_MUTEX_INITIALIZER;
+
+
 #define TRACE(msg)            cout << msg
 #define TRACE_ACTION(a, k, v) cout << a << " (" << k << ", " << v << ")\n"
 
@@ -80,9 +83,9 @@ int getProcIdByName(string procName)
 
 void handle_request(
    http_request request,
-   function<void(json::value const &, json::value &)> action)
+   function<char*(json::value const &)> action)
 {
-   auto answer = json::value::object();
+   char* answer; // = json::value::object();
 
    request
       .extract_json()
@@ -93,7 +96,7 @@ void handle_request(
 
             if (!jvalue.is_null())
             {
-               action(jvalue, answer);
+               answer = action(jvalue);
             }
          }
          catch (http_exception const & e)
@@ -104,7 +107,7 @@ void handle_request(
       .wait();
 
    
-   request.reply(status_codes::OK, answer);
+   request.reply(status_codes::OK, json::value(answer));
 }
 
 char* g_response_buf;
@@ -112,12 +115,13 @@ char* g_response_buf;
 
 void handle_post(http_request request)
 {
-   TRACE("\nhandle POST\n");
+   // TRACE("\nhandle POST\n");
 
    handle_request(
       request,
-      [](json::value const & jvalue, json::value & answer)
+      [](json::value const & jvalue)
    {
+      char* res = NULL;
       string attestation_type;
       string attestation_value;
       string nonce;
@@ -125,7 +129,7 @@ void handle_post(http_request request)
       for (auto const & e : jvalue.as_object())
       {
          if (!e.second.is_string()) { // unexpected request format
-            return;
+            return res;
          }
 
          auto key = e.first;
@@ -141,19 +145,27 @@ void handle_post(http_request request)
             nonce = value;
          } else {
             // unexpected request format
-            return;
+            return res;
          }
       }
 
-      cout << "GOT REQUEST: " << attestation_type << ", " << attestation_value << ", " << nonce << endl;
+      // cout << "GOT REQUEST: " << attestation_type << ", " << attestation_value << ", " << nonce << endl;
 
-      if (attestation_type == "cfa") {
+      if (attestation_type == "cfa") {    
+         // cout << "IN CFA LOGIC!" << endl;     
+         pthread_mutex_lock( &cfa_mutex );         
+         trace_cfa(0,NULL,0, g_response_buf, RESPONSE_SIZE);         
+         pthread_mutex_unlock( &cfa_mutex );
+         // cout << "Got CFA response" << endl;
+         res = g_response_buf;
+         return res;
+
          // prep buffer in normal world that will store the call stack
          //
          int pid = getProcIdByName(attestation_value);      
          if (pid == -1) {
             // invalid attestation value recieved, ignore request
-            return;
+            return res;
          }
 
          do_backtrace(pid, g_response_buf, RESPONSE_SIZE);
@@ -163,16 +175,18 @@ void handle_post(http_request request)
          trace_civ(g_response_buf, RESPONSE_SIZE);
       } else {
          // unsupported attestation type - ignore request
-         return;
+         return res;
       }
 
       // Return the response trace in the answer.
       //
-      answer["trace"] = 0;// buf;
+      // answer["trace"] = 0;// buf;
+      res = g_response_buf;
+      return res;
    });
 }
 
-extern "C" int start_server()
+extern "C" int start_rest_server()
 {
    http_listener listener("http://localhost:6502/tracer");
 

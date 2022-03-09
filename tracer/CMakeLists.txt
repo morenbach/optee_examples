@@ -1,6 +1,6 @@
 project (optee_tracer)
 
-set (SRC host/main.c host/tracer_interface.c host/backtrace.c host/server.cpp)
+set (SRC host/main.c host/tracer_interface.c host/backtrace.c host/server.cpp host/cfa_server.c)
 
 add_executable (${PROJECT_NAME} ${SRC})
 

@@ -13,6 +13,7 @@
 #define TRACER_CMD_CIV  0x1
 #define TRACER_CMD_CFA  0x2
 #define TRACER_CMD_PSLIST  0x3
+#define TRACER_CMD_CONTROL_FLOW 0x4
 
 int invoke_tracer_func(uint32_t reqID, void* buffer, size_t buflen, void* otherbuf, size_t otherbuflen, int reqPid) {
 	TEEC_Result res;
@@ -71,6 +72,11 @@ int invoke_tracer_func(uint32_t reqID, void* buffer, size_t buflen, void* otherb
 }
 
 
+
+void trace_control_flow(char* data) {
+	invoke_tracer_func(TRACER_CMD_CONTROL_FLOW, NULL, 0, data, strlen(data)+1, 0);
+}
+
 void trace_cfa(int req_pid, uint64_t* stack_frames, int num_stack_frames, char* buffer, unsigned int buflen) {
 	// tracer_cfa_args cfa_args = { .req_pid = req_pid, .stack_frames = stack_frames, .num_stack_frames = num_stack_frames, .buffer = buffer, .buflen = buflen };
 	// invoke_tracer_func(TRACER_CMD_CFA, &cfa_args, sizeof(tracer_cfa_args));
@@ -82,8 +88,9 @@ void trace_civ(char* buffer, unsigned int buflen) {
 	invoke_tracer_func(TRACER_CMD_CIV, buffer, buflen, NULL, 0, 0);
 }
 
-void create_tracer() {
-	invoke_tracer_func(TRACER_CMD_CREATE, NULL, 0, NULL, 0, 0);
+void create_tracer(char* req_buffer, unsigned int buflen) {
+	invoke_tracer_func(TRACER_CMD_CREATE, req_buffer, buflen, NULL, 0, 0);
+	// invoke_tracer_func(TRACER_CMD_CREATE, NULL, 0, NULL, 0, 0);
 }
 
 void trace_pslist() {

@@ -5,7 +5,7 @@
 extern "C" {
 #endif
 
-int start_server ();
+int start_rest_server ();
 
 #ifdef __cplusplus
 }
